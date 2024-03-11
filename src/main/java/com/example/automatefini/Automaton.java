@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -252,12 +253,13 @@ public class Automaton {
             states[i] = new State(stateNumber, false); // Initialiser chaque état avec son numéro
         }
 
-        // Récupérer les terminaux de la deuxième ligne
-        String[] terminalsStr = lines.get(1).split(", ");
+        String[] terminalsStr = lines.get(1).split(",");
         terminals = new char[terminalsStr.length];
         for (int i = 0; i < terminalsStr.length; i++) {
             terminals[i] = terminalsStr[i].charAt(0);
         }
+
+        // System.out.println(terminals[1]);
 
         // Récupérer les transitions à partir de la troisième ligne
         List<Transition> transitionsList = new ArrayList<>();
@@ -295,14 +297,23 @@ public class Automaton {
         return null; // Si l'état n'est pas trouvé
     }
 
+    private static List<String> readLinesFromFile(File file) throws IOException {
+        List<String> lines = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                lines.add(line);
+            }
+        }
+        return lines;
+    }
+
     public static Automaton union(Automaton automaton1, Automaton automaton2) {
         // Récupérer les attributs des deux automates
         int numStates1 = automaton1.getNumStates();
         int numStates2 = automaton2.getNumStates();
         int numTerminals1 = automaton1.getNumTerminals();
         int numTerminals2 = automaton2.getNumTerminals();
-        int numFinalStates1 = automaton1.getNumFinalStates();
-        int numFinalStates2 = automaton2.getNumFinalStates();
         char[] terminals1 = automaton1.getTerminals();
         char[] terminals2 = automaton2.getTerminals();
         State[] states1 = automaton1.getStates();
@@ -316,14 +327,8 @@ public class Automaton {
 
         // Créer un nouvel ensemble d'états finaux
         Set<State> newFinalStates = new HashSet<>();
-
-        // Ajouter les états finaux des deux automates à l'ensemble d'états finaux
-        for (State finalState : finalStates1) {
-            newFinalStates.add(new State(finalState.getStateNumber(), true));
-        }
-        for (State finalState : finalStates2) {
-            newFinalStates.add(new State(numStates1 + finalState.getStateNumber(), true));
-        }
+        Collections.addAll(newFinalStates, finalStates1);
+        Collections.addAll(newFinalStates, finalStates2);
 
         // Ajouter l'état initial à l'ensemble des états finaux si nécessaire
         boolean newInitialStateIsFinal = initialState1.isFinal() || initialState2.isFinal();
@@ -339,19 +344,9 @@ public class Automaton {
         }
 
         // Créer un nouvel ensemble de transitions
-        List<Transition> newTransitions = new ArrayList<>();
-        for (Transition transition : transitions1) {
-            newTransitions.add(new Transition(
-                    new State(transition.getSourceState().getStateNumber(), false),
-                    transition.getTerminal(),
-                    new State(transition.getTargetState().getStateNumber(), false)));
-        }
-        for (Transition transition : transitions2) {
-            newTransitions.add(new Transition(
-                    new State(numStates1 + transition.getSourceState().getStateNumber(), false),
-                    transition.getTerminal(),
-                    new State(numStates1 + transition.getTargetState().getStateNumber(), false)));
-        }
+        Set<Transition> newTransitions = new HashSet<>();
+        addTransitions(newTransitions, transitions1, 0);
+        addTransitions(newTransitions, transitions2, numStates1);
 
         // Créer un nouvel automate avec les attributs appropriés
         Automaton unionAutomaton = new Automaton(
@@ -367,6 +362,15 @@ public class Automaton {
         return unionAutomaton;
     }
 
+    private static void addTransitions(Set<Transition> transitionsSet, Transition[] transitions, int offset) {
+        for (Transition transition : transitions) {
+            transitionsSet.add(new Transition(
+                    new State(transition.getSourceState().getStateNumber() + offset, false),
+                    transition.getTerminal(),
+                    new State(transition.getTargetState().getStateNumber() + offset, false)));
+        }
+    }
+
     // Méthode utilitaire pour concaténer deux tableaux de caractères
     private static char[] concatArrays(char[] arr1, char[] arr2) {
         char[] result = new char[arr1.length + arr2.length];
@@ -375,23 +379,13 @@ public class Automaton {
         return result;
     }
 
-    private static List<String> readLinesFromFile(File file) throws IOException {
-        List<String> lines = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                lines.add(line);
-            }
-        }
-        return lines;
-    }
-
     public static List<String> toMathematicalForm(Automaton automaton) {
         List<String> lines = new ArrayList<>();
 
         // Forme mathématique pour les états
         StringBuilder statesLine = new StringBuilder();
-        statesLine.append("Q");
+        statesLine.append("Q={");
+
         for (State state : automaton.states) {
             statesLine.append("q").append(state.getStateNumber());
             if (state.isFinal()) {
