@@ -3,6 +3,7 @@ package com.example.automatefini;
 public class State {
     private int stateNumber;
     private boolean isFinal;
+    private String hello;
 
     public State(int stateNumber, boolean isFinal) {
         this.stateNumber = stateNumber;
